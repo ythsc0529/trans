@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>隨便你翻 - AI 翻譯學習工具</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <header>
+        <h1>隨便你翻 🤖</h1>
+        <p>一個由 Gemini AI 驅動的智慧翻譯學習工具</p>
+    </header>
+
+    <main class="translator-container">
+        
+        <div class="controls">
+            <div class="language-selector">
+                <select id="source-lang">
+                    <option value="auto">自動偵測</option>
+                    <option value="zh-Hant">繁體中文</option>
+                    <option value="en">English</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                    <option value="es">Español</option>
+                    </select>
+                <button id="swap-lang-btn" title="交換語言">⇄</button>
+                <select id="target-lang">
+                    <option value="en">English</option>
+                    <option value="zh-Hant">繁體中文</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                    <option value="es">Español</option>
+                    </select>
+            </div>
+            <div class="learning-mode">
+                <label for="learning-mode-toggle">學習模式</label>
+                <label class="switch">
+                    <input type="checkbox" id="learning-mode-toggle">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="text-areas">
+            <div class="textarea-wrapper">
+                <textarea id="input-text" placeholder="輸入要翻譯的文字..."></textarea>
+            </div>
+            <div class="textarea-wrapper">
+                <div id="output-area">
+                    <div id="loader" class="hidden"></div>
+                    <div id="translation-result"></div>
+                    <div id="learning-output" class="hidden">
+                        <hr>
+                        <h3>📚 學習筆記</h3>
+                        <div id="learning-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <button id="translate-btn">翻   譯</button>
+
+    </main>
+
+    <footer>
+        <p>Powered by Google Gemini API</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
