@@ -18,7 +18,7 @@ exports.handler = async function(event, context) {
 
         // Initialize the Generative AI client
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         let prompt;
         const sourceLanguage = sourceLang === 'auto' ? '自動偵測的語言' : sourceLang;
