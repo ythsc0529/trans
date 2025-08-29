@@ -25,61 +25,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const quizBody = document.getElementById('quiz-body');
 
     // --- 應用程式狀態與常數 ---
-    // Netlify function endpoint（使用你建立的 netlify/function/translate.js）
-    const NETLIFY_TRANSLATE_FN = '/.netlify/functions/translate';
+    // 不再需要 API Key，API URL 改為指向我們的後端函式
+    const NETLIFY_FUNCTION_URL = '/.netlify/functions/translate';
     let notebook = JSON.parse(localStorage.getItem('husonAI_notebook')) || [];
     let currentQuizState = {};
 
-    // 擴充語言列表
+    // 提供一些常用語言選項
     const languages = {
-        "auto": "自動偵測",
-        "en": "English (英文)",
-        "zh-TW": "Traditional Chinese (繁體中文)",
-        "zh-CN": "Simplified Chinese (簡體中文)",
-        "ja": "Japanese (日文)",
-        "ko": "Korean (韓文)",
-        "es": "Spanish (西班牙文)",
-        "fr": "French (法文)",
-        "de": "German (德文)",
-        "ru": "Russian (俄文)",
-        "it": "Italian (義大利文)",
-        "pt": "Portuguese (葡萄牙文)",
-        "nl": "Dutch (荷蘭文)",
-        "sv": "Swedish (瑞典文)",
-        "pl": "Polish (波蘭文)",
-        "ar": "Arabic (阿拉伯文)",
-        "vi": "Vietnamese (越南文)",
-        "th": "Thai (泰文)",
-        "id": "Indonesian (印尼文)",
-        "tr": "Turkish (土耳其文)",
-        "hi": "Hindi (印地文)"
+        "en": "English (英文)", "zh-TW": "Traditional Chinese (繁體中文)", "zh-CN": "Simplified Chinese (簡體中文)",
+        "ja": "Japanese (日文)", "ko": "Korean (韓文)", "es": "Spanish (西班牙文)", "fr": "French (法文)",
+        "de": "German (德文)", "ru": "Russian (俄文)", "th": "Thai (泰文)", "vi": "Vietnamese (越南文)"
     };
 
     // --- 核心功能函式 ---
 
     /**
      * 填充語言選擇下拉選單
-     * 注意：只有來源語言會包含 "auto"（自動偵測），目標語言不應該有 auto 選項
      */
     function populateLanguages() {
         for (const [code, name] of Object.entries(languages)) {
-            if (code === 'auto') {
-                // 只加入來源下拉選單
-                sourceLangSelect.add(new Option(name, code));
-                continue;
-            }
-            // 其他語言同時加入來源與目標下拉
             sourceLangSelect.add(new Option(name, code));
             targetLangSelect.add(new Option(name, code));
         }
-        // 預設來源為自動偵測，目標預設為繁體中文
-        sourceLangSelect.value = 'auto';
-        targetLangSelect.value = 'zh-TW';
+        targetLangSelect.value = 'zh-TW'; // 預設目標語言為繁體中文
     }
 
     /**
-     * 呼叫 Netlify translate function（由 function 轉發到 Gemini）
-     * @param {string} prompt
+     * 呼叫 Gemini API 的主要函式
+     * @param {string} prompt - 傳送給 AI 的指令
      */
     async function callHusonAI(prompt) {
         loader.style.display = 'block';
@@ -88,49 +61,36 @@ document.addEventListener('DOMContentLoaded', () => {
         detailedResultSection.classList.add('hidden');
 
         try {
-            const resp = await fetch(NETLIFY_TRANSLATE_FN, {
+            const response = await fetch(NETLIFY_FUNCTION_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt })
+                body: JSON.stringify({ prompt: prompt }),
             });
 
-            if (!resp.ok) {
-                const errText = await resp.text();
-                console.error('Netlify function error:', resp.status, errText);
-                throw new Error(`伺服器錯誤: ${resp.status}`);
+            if (!response.ok) {
+                // 嘗試讀取後端錯誤訊息
+                let errData = {};
+                try { errData = await response.json(); } catch (_) { errData = { error: response.statusText }; }
+                throw new Error(`後端函式錯誤: ${errData.error || response.statusText}`);
             }
 
-            const data = await resp.json();
-            // data 是從 Gemini API 直接回傳的物件（netlify function 只是轉發）
-            const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (typeof aiText === 'undefined') {
-                console.error('Unexpected API response shape:', data);
-                throw new Error('回傳格式不正確');
-            }
-            return aiText;
+            const data = await response.json();
+
+            // 後端會原樣回傳 Gemini 的回應結構，正常取出文字
+            const aiResponse = (data && data.candidates && data.candidates[0] && data.candidates[0].content
+                && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text)
+                ? data.candidates[0].content.parts[0].text
+                : JSON.stringify({ error: '後端回傳格式異常' });
+
+            return aiResponse;
+
         } catch (error) {
             console.error("呼叫 husonAI 時發生錯誤:", error);
-            return JSON.stringify({ error: "翻譯時發生錯誤。請檢查後端或網路連線，然後再試一次。" });
+            return JSON.stringify({ error: "翻譯時發生錯誤。請稍後再試。" });
         } finally {
             loader.style.display = 'none';
             textOutput.classList.remove('loading-placeholder');
         }
-    }
-
-    /**
-     * 判斷是否為「單字/單一 token」
-     * 更嚴格：以空白切分 token，且只有一個 token，且長度合理
-     */
-    function isSingleToken(text) {
-        if (!text) return false;
-        const tokens = text.trim().split(/\s+/).filter(Boolean);
-        if (tokens.length !== 1) return false;
-        const token = tokens[0];
-        // 若含有空格或過長就視為非單字（允許 1-40 字元）
-        if (token.length < 1 || token.length > 40) return false;
-        // 若含有多個標點或換行也視為非單字
-        if (/[\n\r\t]/.test(token)) return false;
-        return true;
     }
 
     /**
@@ -145,12 +105,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const sourceLangName = sourceLang === 'auto' ? 'auto-detect' : languages[sourceLang];
         const targetLangName = languages[targetLang];
 
-        // 使用更嚴格的單字判斷
-        const isSingleWord = isSingleToken(text);
-
+        // 判斷是單字還是句子 (簡單判斷)
+        const isSingleWord = !text.includes(' ') && text.length < 25;
         let prompt;
+
         if (isSingleWord) {
-            // 單字：要求 JSON 結構回傳（顯示詞性、例句等）
             prompt = `
                 你是一個名為 husonAI 的專業字典 AI。
                 使用者正在查詢單字或片語: "${text}"。
@@ -164,16 +123,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     {
                       "part_of_speech": "詞性 (例如: 名詞, 動詞)",
                       "meaning": "這個詞性下的中文意思",
-                      "example_sentence": "使用該單字的例句（請盡量使用來源語）",
+                      "example_sentence": "使用該單字的英文例句",
                       "example_translation": "例句的中文翻譯"
                     }
                   ],
                   "synonyms": ["相似詞1", "相似詞2"]
                 }
-                如果輸入的不是一個有效的單字，請回傳一個包含 \"error\" 鍵的 JSON 物件。
+                如果輸入的不是一個有效的單字，請回傳一個包含 "error" 鍵的 JSON 物件。
             `;
         } else {
-            // 句子/片語：只回傳翻譯文字（不顯示詞性/例句）
             prompt = `
                 你是一個名為 husonAI 的專業翻譯引擎。
                 請將以下文字從 ${sourceLangName} 翻譯成 ${targetLangName}。
@@ -183,19 +141,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const rawResponse = await callHusonAI(prompt);
-
+        
         try {
-            // 嘗試解析為 JSON（僅可能在單字查詢時成立）
+            // 首先嘗試解析為 JSON (單字查詢)
             const jsonData = JSON.parse(rawResponse);
             if (jsonData.error) {
                 textOutput.textContent = jsonData.error;
                 detailedResultSection.classList.add('hidden');
             } else {
-                // 只有單字查詢會回傳 JSON 並顯示詳細結果
                 displayDetailedResults(jsonData);
             }
         } catch (e) {
-            // 如果解析失敗，則視為普通句子翻譯（純文字）
+            // 如果解析失敗，則為句子翻譯
             textOutput.textContent = rawResponse.trim();
             detailedResultSection.classList.add('hidden');
         }
@@ -206,19 +163,19 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {object} data - 從 API 取得的 JSON 資料
      */
     function displayDetailedResults(data) {
-        textOutput.textContent = data.translation || '';
-        resultWordEl.textContent = data.original_word || '';
+        textOutput.textContent = data.translation;
+        resultWordEl.textContent = data.original_word;
 
         let detailsHTML = '';
-        if (Array.isArray(data.definitions)) {
+        if (data.definitions) {
             data.definitions.forEach(def => {
                 detailsHTML += `
                     <div class="detail-block">
-                        <p class="pos">${def.part_of_speech || ''}</p>
-                        <h3>${def.meaning || ''}</h3>
+                        <p class="pos">${def.part_of_speech}</p>
+                        <h3>${def.meaning}</h3>
                         <ul>
-                            <li><strong>例句：</strong> ${def.example_sentence || ''}</li>
-                            <li><strong>翻譯：</strong> ${def.example_translation || ''}</li>
+                            <li><strong>例句：</strong> ${def.example_sentence}</li>
+                            <li><strong>翻譯：</strong> ${def.example_translation}</li>
                         </ul>
                     </div>
                 `;
