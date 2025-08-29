@@ -300,15 +300,34 @@ document.addEventListener('DOMContentLoaded', () => {
      * 將單字儲存到筆記本
      */
     function saveToNotebook() {
-        const word = resultWordEl.textContent;
-        const translation = textOutput.textContent;
+        // 若目前正在顯示詳細結果（單字查詢），則以翻譯結果作為筆記的主詞，
+        // 原始詞儲為說明；否則以輸出/輸入做為備援。
+        const isDetailed = !detailedResultSection.classList.contains('hidden');
 
-        if (word && !notebook.some(item => item.word.toLowerCase() === word.toLowerCase())) {
+        let word = '';
+        let translation = '';
+
+        if (isDetailed) {
+            // 詳細結果：textOutput 是翻譯（目標語），resultWordEl 是原詞（來源語）
+            word = textOutput.textContent.trim();
+            translation = resultWordEl.textContent.trim();
+        } else {
+            // 句子或一般翻譯：把輸出的翻譯當作主要儲存，輸入當作備註
+            word = textOutput.textContent.trim() || textInput.value.trim();
+            translation = textInput.value.trim() || textOutput.textContent.trim();
+        }
+
+        if (!word) {
+            alert('無法加入筆記：找不到要儲存的詞。');
+            return;
+        }
+
+        if (!notebook.some(item => item.word.toLowerCase() === word.toLowerCase())) {
             notebook.push({ word, translation });
             localStorage.setItem('husonAI_notebook', JSON.stringify(notebook));
             alert(`"${word}" 已成功加入筆記！`);
             renderNotebook();
-        } else if (word) {
+        } else {
             alert(`"${word}" 已經在你的筆記中了。`);
         }
     }
