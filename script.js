@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const quizModal = document.getElementById('quiz-modal');
     const closeQuizBtn = document.getElementById('close-quiz-btn');
     const quizBody = document.getElementById('quiz-body');
+    const translateBtn = document.getElementById('translate-btn');
 
     // --- 應用程式狀態與常數 ---
     // Netlify function endpoint（使用你建立的 netlify/function/translate.js）
@@ -151,15 +152,14 @@ document.addEventListener('DOMContentLoaded', () => {
         let prompt;
         if (isSingleWord) {
             // 單字：要求 JSON 結構回傳（顯示詞性、例句等）
-            // 要求 synonyms 為物件陣列，包含 source (原始語言) 與 translation (目標語)
             prompt = `
                 你是一個名為 husonAI 的專業字典 AI。
                 使用者正在查詢單字或片語: "${text}"。
                 請從 ${sourceLangName} 翻譯成 ${targetLangName}。
-                請只以 JSON 回應（不要任何額外說明或 code fence），並以繁體中文說明欄位。
-                JSON 物件必須包含以下結構：
+                請以繁體中文提供一個詳細的 JSON 格式分析報告。
+                JSON 物件必須包含以下結構:
                 {
-                  "translation": "最直接的翻譯結果（目標語）",
+                  "translation": "最直接的翻譯結果",
                   "original_word": "${text}",
                   "definitions": [
                     {
@@ -169,11 +169,9 @@ document.addEventListener('DOMContentLoaded', () => {
                       "example_translation": "例句的中文翻譯"
                     }
                   ],
-                  "synonyms": [
-                    { "source": "相似詞（請以原始語言回傳）", "translation": "該相似詞的目標語翻譯" }
-                  ]
+                  "synonyms": ["相似詞1", "相似詞2"]
                 }
-                注意：synonyms 必須以物件陣列回傳，source 欄位請使用原始語言（使用者輸入的語言），translation 為目標語。如果輸入的不是一個有效單字，請回傳包含 \"error\" 鍵的 JSON 物件。
+                如果輸入的不是一個有效的單字，請回傳一個包含 \"error\" 鍵的 JSON 物件。
             `;
         } else {
             // 句子/片語：只回傳翻譯文字（不顯示詞性/例句）
@@ -259,19 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="detail-block">
                     <h3>相似單字</h3>
                     <div class="synonyms-container">
-                        ${data.synonyms.map(syn => {
-                            // 支援兩種格式：字串 或 { source, translation }
-                            if (typeof syn === 'string') {
-                                return `<span class="synonym-tag">${syn}</span>`;
-                            }
-                            if (syn && typeof syn === 'object') {
-                                const src = syn.source || syn.text || '';
-                                const tr = syn.translation || syn.trans || '';
-                                // 顯示：原文（翻譯）
-                                return `<span class="synonym-tag">${src}${tr ? ' (' + tr + ')' : ''}</span>`;
-                            }
-                            return '';
-                        }).join('')}
+                        ${data.synonyms.map(syn => `<span class="synonym-tag">${syn}</span>`).join('')}
                     </div>
                 </div>
             `;
@@ -284,7 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.synonym-tag').forEach(tag => {
             tag.addEventListener('click', () => {
                 textInput.value = tag.textContent;
-                handleTranslation();
+                // 僅填入文字，不自動翻譯；使用者按下「翻譯」才會翻譯
+                textInput.focus();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
         });
@@ -402,19 +389,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 事件監聽器 ---
 
-    let debounceTimer;
-    textInput.addEventListener('input', () => {
-        const text = textInput.value;
-        charCounter.textContent = `${text.length} / 5000`;
-
-        clearTimeout(debounceTimer);
-        if (text) {
-            debounceTimer = setTimeout(() => {
-                handleTranslation();
-            }, 800); // 使用者停止輸入 800 毫秒後觸發翻譯
-        }
-    });
-
     swapLangBtn.addEventListener('click', () => {
         const sourceVal = sourceLangSelect.value;
         const targetVal = targetLangSelect.value;
@@ -429,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!textOutput.classList.contains('loading-placeholder')) {
                 textInput.value = outputText;
                 textOutput.textContent = inputText;
-                handleTranslation();
+                // 不自動翻譯，使用者按下「翻譯」觸發
             }
         }
     });
