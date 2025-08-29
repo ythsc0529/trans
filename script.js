@@ -29,8 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const NETLIFY_TRANSLATE_FN = '/.netlify/functions/translate';
     let notebook = JSON.parse(localStorage.getItem('husonAI_notebook')) || [];
     let currentQuizState = {};
-    // 儲存最近一次單字查詢取得的詳細 JSON（若有）
-    let lastDetailedData = null;
+    let lastDetailedData = null; // 儲存最後一次解析出的詳細 JSON（用於加入筆記）
 
     // 擴充語言列表
     const languages = {
@@ -76,7 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // 預設來源為自動偵測，目標預設為繁體中文
         sourceLangSelect.value = 'auto';
-        targetLangSelect.value = 'zh-TW';
+        // 預設目標改為英文
+        targetLangSelect.value = 'en';
     }
 
     /**
@@ -136,6 +136,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
+     * 取得可放入系統提示中的輸出語言名稱（用於要求 AI 回傳指定語言的例句/說明）
+     */
+    function getOutputLangLabel(code) {
+        const map = {
+            en: 'English',
+            'zh-TW': '繁體中文',
+            'zh-CN': '簡體中文',
+            ja: '日本語',
+            ko: '한국어',
+            es: 'Español',
+            fr: 'Français',
+            de: 'Deutsch',
+            ru: 'Русский',
+            it: 'Italiano',
+            pt: 'Português'
+        };
+        if (map[code]) return map[code];
+        const name = languages[code];
+        if (!name) return code;
+        return name.split('(')[0].trim();
+    }
+
+    /**
      * 處理翻譯邏輯
      */
     async function handleTranslation() {
@@ -153,21 +176,22 @@ document.addEventListener('DOMContentLoaded', () => {
         let prompt;
         if (isSingleWord) {
             // 單字：要求 JSON 結構回傳（顯示詞性、例句等）
+            const outLang = getOutputLangLabel(targetLang);
             prompt = `
                 你是一個名為 husonAI 的專業字典 AI。
                 使用者正在查詢單字或片語: "${text}"。
                 請從 ${sourceLangName} 翻譯成 ${targetLangName}。
-                請以繁體中文提供一個詳細的 JSON 格式分析報告。
+                請以 ${outLang} 提供一個詳細的 JSON 格式分析報告（所有說明與例句請以翻譯後的語言呈現）。
                 JSON 物件必須包含以下結構:
                 {
-                  "translation": "最直接的翻譯結果",
+                  "translation": "最直接的翻譯結果（以 ${outLang} 表示）",
                   "original_word": "${text}",
                   "definitions": [
                     {
-                      "part_of_speech": "詞性 (例如: 名詞, 動詞)",
-                      "meaning": "這個詞性下的中文意思",
-                      "example_sentence": "使用該單字的例句（請盡量使用來源語）",
-                      "example_translation": "例句的中文翻譯"
+                      "part_of_speech": "詞性 (例如: noun, verb)",
+                      "meaning": "這個詞性下的意思（以 ${outLang} 表示）",
+                      "example_sentence": "使用該單字的例句（以 ${outLang} 表示）",
+                      "example_translation": "例句的翻譯（亦以 ${outLang} 表示，若不適用可留空）"
                     }
                   ],
                   "synonyms": ["相似詞1", "相似詞2"]
@@ -234,30 +258,27 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {object} data - 從 API 取得的 JSON 資料
      */
     function displayDetailedResults(data) {
-        // 保存最近一次詳細資料，供「加入筆記」使用
+        textOutput.textContent = data.translation || '';
+        resultWordEl.textContent = data.original_word || '';
+
+        // 儲存最後解析的詳細資料（會用於加入筆記）
         lastDetailedData = data;
 
-        textOutput.textContent = data.translation || '';
-        // 顯示為目標語言的單字（以便筆記統整為翻譯後的單字）
-        resultWordEl.textContent = data.translation || data.original_word || '';
- 
         let detailsHTML = '';
-        // 顯示原文供參考
-        detailsHTML += `<div class="detail-block"><p><strong>原文：</strong>${data.original_word || ''}</p></div>`;
-         if (Array.isArray(data.definitions)) {
-             data.definitions.forEach(def => {
-                 detailsHTML += `
-                     <div class="detail-block">
-                         <p class="pos">${def.part_of_speech || ''}</p>
-                         <h3>${def.meaning || ''}</h3>
-                         <ul>
-                             <li><strong>例句：</strong> ${def.example_sentence || ''}</li>
-                             <li><strong>翻譯：</strong> ${def.example_translation || ''}</li>
-                         </ul>
-                     </div>
-                 `;
-             });
-         }
+        if (Array.isArray(data.definitions)) {
+            data.definitions.forEach(def => {
+                detailsHTML += `
+                    <div class="detail-block">
+                        <p class="pos">${def.part_of_speech || ''}</p>
+                        <h3>${def.meaning || ''}</h3>
+                        <ul>
+                            <li><strong>例句：</strong> ${def.example_sentence || ''}</li>
+                            <li><strong>翻譯：</strong> ${def.example_translation || ''}</li>
+                        </ul>
+                    </div>
+                `;
+            });
+        }
 
         if (data.synonyms && data.synonyms.length > 0) {
             detailsHTML += `
@@ -308,25 +329,38 @@ document.addEventListener('DOMContentLoaded', () => {
      * 將單字儲存到筆記本
      */
     function saveToNotebook() {
-        // 若最近有詳細 JSON 資料，將筆記以「翻譯後的單字」為主詞，並把原文或中文解釋存為 translation
-        const wordFromUI = resultWordEl.textContent;
-        let noteWord = wordFromUI;
-        let noteTranslation = textOutput.textContent;
-
-        if (lastDetailedData) {
-            // 優先使用 detailed data：word = translation(目標語)，translation = original_word(來源語)
-            noteWord = lastDetailedData.translation || noteWord;
-            noteTranslation = lastDetailedData.original_word || noteTranslation;
+        // 優先使用 lastDetailedData（單字查詢），否則退回顯示文字
+        if (!lastDetailedData) {
+            alert('目前沒有可加入筆記的單字。請先查詢單字並確保顯示詳細結果。');
+            return;
         }
 
-        if (noteWord && !notebook.some(item => item.word.toLowerCase() === noteWord.toLowerCase())) {
-            notebook.push({ word: noteWord, translation: noteTranslation });
-            localStorage.setItem('husonAI_notebook', JSON.stringify(notebook));
-            alert(`"${noteWord}" 已成功加入筆記！`);
-            renderNotebook();
-        } else if (noteWord) {
-            alert(`"${noteWord}" 已經在你的筆記中了。`);
+        const word = (lastDetailedData.translation || '').trim();
+        if (!word) {
+            alert('找不到翻譯的單字，無法加入筆記。');
+            return;
         }
+
+        // 檢查重複（以翻譯後的字為主）
+        if (notebook.some(item => item.word.toLowerCase() === word.toLowerCase())) {
+            alert(`"${word}" 已經在你的筆記中了。`);
+            return;
+        }
+
+        const entry = {
+            word,
+            // 儲存翻譯（可能與 word 相同）、definitions 與 synonyms 以便後續顯示或測驗
+            translation: lastDetailedData.translation || '',
+            definitions: lastDetailedData.definitions || [],
+            synonyms: lastDetailedData.synonyms || [],
+            source: lastDetailedData.original_word || '',
+            targetLang: targetLangSelect.value
+        };
+
+        notebook.push(entry);
+        localStorage.setItem('husonAI_notebook', JSON.stringify(notebook));
+        alert(`"${word}" 已成功加入筆記！`);
+        renderNotebook();
     }
     
     // --- 測驗功能 ---
