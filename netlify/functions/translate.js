@@ -16,6 +16,13 @@ exports.handler = async function(event, context) {
             throw new Error("API Key not found.");
         }
 
+        // Small guard: if client accidentally sent word_lookup but the input contains multiple tokens, fall back to translate
+        let effectiveMode = mode;
+        const tokens = text.trim().split(/\s+/).filter(Boolean);
+        if (effectiveMode === 'word_lookup' && tokens.length > 1) {
+            effectiveMode = 'translate';
+        }
+
         // Initialize the Generative AI client
         const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -23,7 +30,7 @@ exports.handler = async function(event, context) {
         let prompt;
         const sourceLanguage = sourceLang === 'auto' ? '自動偵測的語言' : sourceLang;
 
-        switch (mode) {
+        switch (effectiveMode) {
             case 'learning':
                 prompt = `
                 你現在是一個名為 husonAI 的專業語言學習助理。請遵循以下步驟：
@@ -44,15 +51,16 @@ exports.handler = async function(event, context) {
                 `;
                 break;
             case 'word_lookup':
+                // word_lookup 現在只會在單字情況下被觸發（client 端已判斷），提供詞性、發音、定義、用法與例句
                 prompt = `
                 你現在是一個名為 husonAI 的專業字典。
-                針對使用者提供的單字或片語，提供詳細的分析，若使用者提供的是句子則無需包含以下例句改為提供使用者最精準的翻譯。
+                針對使用者提供的單字或片語（預期為單字），提供詳細的分析。
                 請包含以下資訊：
-                -   **詞性**: (e.g., 名詞, 動詞)
-                -   **發音**: (如果適用，例如 KK 音標或羅馬拼音)
-                -   **定義**: 提供 1-3 個最常見的中文意思。
-                -   **用法/情境**: 簡短說明這個詞通常在什麼情況下使用。
-                -   **例句**: 提供至少 2 個包含此單字/片語的例句，並附上中文翻譯。
+                -   詞性: (e.g., 名詞, 動詞)
+                -   發音: (如果適用，例如 KK 音標或羅馬拼音)
+                -   定義: 提供 1-3 個最常見的中文意思。
+                -   用法/情境: 簡短說明這個詞通常在什麼情況下使用。
+                -   例句: 提供至少 2 個包含此單字/片語的例句，並附上中文翻譯。
 
                 請嚴格用以下的 JSON 格式回覆，不要加任何 markdown 符號:
                 {

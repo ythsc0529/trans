@@ -30,12 +30,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Determine mode based on input and learning mode toggle
         let mode = 'translate';
-        const wordCount = sourceText.split(/\s+/).length;
-        if (wordCount <= 5) {
-             mode = 'word_lookup';
-        }
-        if (isLearningMode && wordCount > 5) {
+        const tokens = sourceText.split(/\s+/).filter(Boolean);
+        const wordCount = tokens.length;
+        const isSingleWord = wordCount === 1;
+
+        // If learning mode is on and the input is a sentence/phrase, use learning mode
+        if (isLearningMode && wordCount > 1) {
             mode = 'learning';
+        } else if (isSingleWord) {
+            // For a single token, use word lookup (will include詞性/例句等)
+            mode = 'word_lookup';
+        } else {
+            // For multi-word input (phrases/sentences) use normal translation
+            mode = 'translate';
         }
 
         try {
