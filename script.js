@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const textOutput = document.getElementById('text-output');
     const charCounter = document.querySelector('.char-counter');
     const loader = document.getElementById('husonai-loader');
+    const translateBtn = document.getElementById('translate-btn'); // 新增按鈕引用
     
     const detailedResultSection = document.getElementById('detailed-result-section');
     const resultWordEl = document.getElementById('result-word');
@@ -23,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const quizModal = document.getElementById('quiz-modal');
     const closeQuizBtn = document.getElementById('close-quiz-btn');
     const quizBody = document.getElementById('quiz-body');
-    const translateBtn = document.getElementById('translate-btn');
 
     // --- 應用程式狀態與常數 ---
     // Netlify function endpoint（使用你建立的 netlify/function/translate.js）
@@ -266,12 +266,11 @@ document.addEventListener('DOMContentLoaded', () => {
         wordDetailsContent.innerHTML = detailsHTML;
         detailedResultSection.classList.remove('hidden');
 
-        // 為新的相似詞標籤添加事件監聽器
+        // 為新的相似詞標籤添加事件監聽器（不自動翻譯，僅填入輸入框）
         document.querySelectorAll('.synonym-tag').forEach(tag => {
             tag.addEventListener('click', () => {
                 textInput.value = tag.textContent;
-                // 僅填入文字，不自動翻譯；使用者按下「翻譯」才會翻譯
-                textInput.focus();
+                // 不自動觸發翻譯，使用者按下「翻譯」即可
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             });
         });
@@ -389,6 +388,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 事件監聽器 ---
 
+    let debounceTimer;
+    // 監聽輸入框：只更新字數計數，不自動翻譯
+    textInput.addEventListener('input', () => {
+        const text = textInput.value;
+        charCounter.textContent = `${text.length} / 5000`;
+        // 不再自動觸發 handleTranslation()
+    });
+
+    // 翻譯按鈕：使用者按下才觸發翻譯
+    translateBtn.addEventListener('click', () => {
+        handleTranslation();
+    });
+
     swapLangBtn.addEventListener('click', () => {
         const sourceVal = sourceLangSelect.value;
         const targetVal = targetLangSelect.value;
@@ -399,11 +411,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const inputText = textInput.value;
             const outputText = textOutput.textContent;
             
-            // 只有在輸出區不是預設文字時才交換
+            // 只有在輸出區不是預設文字時才交換顯示，但不自動翻譯
             if (!textOutput.classList.contains('loading-placeholder')) {
                 textInput.value = outputText;
                 textOutput.textContent = inputText;
-                // 不自動翻譯，使用者按下「翻譯」觸發
+                // 不自動觸發 handleTranslation()
             }
         }
     });

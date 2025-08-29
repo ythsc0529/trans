@@ -26,15 +26,17 @@
             <div class="text-areas">
                 <div class="text-input-area">
                     <textarea id="text-input" placeholder="在這裡輸入要翻譯的文字..." maxlength="5000"></textarea>
-                    <div class="input-actions" style="margin-top:8px;">
-                        <button id="translate-btn" class="btn-primary">翻譯</button>
-                    </div>
                     <div class="char-counter">0 / 5000</div>
                 </div>
                 <div class="text-output-area">
                     <div id="text-output" class="loading-placeholder">翻譯結果將顯示於此</div>
                     <div id="husonai-loader" class="loader" style="display: none;"></div>
                 </div>
+            </div>
+
+            <!-- 新增翻譯按鈕（使用者按下才會翻譯） -->
+            <div class="action-bar" style="margin-top:1rem; text-align:right;">
+                <button id="translate-btn" class="btn-primary"><i class="fas fa-language"></i> 翻譯</button>
             </div>
         </main>
 
