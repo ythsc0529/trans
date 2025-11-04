@@ -1,3 +1,4 @@
+//為求方便，程式註解由AI生成，程式本體由我自行撰寫
 // netlify/functions/translate.js
 exports.handler = async function (event, context) {
   // 只允許 POST 請求

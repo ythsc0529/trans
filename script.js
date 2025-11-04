@@ -1,3 +1,4 @@
+//為求方便，程式註解由AI生成，程式本體由我自行撰寫
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM 元素宣告 ---
     const sourceLangSelect = document.getElementById('source-lang');
