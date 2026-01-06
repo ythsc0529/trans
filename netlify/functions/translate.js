@@ -9,7 +9,7 @@ exports.handler = async function (event, context) {
   try {
     const { prompt } = JSON.parse(event.body);
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY; // 從 Netlify 環境變數安全地讀取金鑰
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemma-3-12b-it:generateContent?key=${GEMINI_API_KEY}`;
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemma-3-4b-it:generateContent?key=${GEMINI_API_KEY}`;
 
     const response = await fetch(API_URL, {
       method: 'POST',
